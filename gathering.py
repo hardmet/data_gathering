@@ -1,32 +1,4 @@
 """
-Зачем нужны __init__.py файлы
-https://stackoverflow.com/questions/448271/what-is-init-py-for
-
-Про документирование в Python проекте
-https://www.python.org/dev/peps/pep-0257/
-
-Про оформление Python кода
-https://www.python.org/dev/peps/pep-0008/
-
-
-Примеры сбора данных:
-https://habrahabr.ru/post/280238/
-
-Для запуска тестов в корне проекта:
-python3 -m unittest discover
-
-Для запуска проекта из корня проекта:
-python3 -m gathering gather
-или
-python3 -m gathering transform
-или
-python3 -m gathering stats
-
-
-Для проверки стиля кода всех файлов проекта из корня проекта
-pep8 .
-
-
 ЗАДАНИЕ
 
 Выбрать источник данных и собрать данные по некоторой предметной области.
@@ -125,8 +97,10 @@ import logging
 
 import sys
 
+from parsers.html_parser import HtmlParser
 from scrappers.scrapper import Scrapper
 from storages.file_storage import FileStorage
+import pandas
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -150,17 +124,40 @@ def convert_data_to_table_format():
 
     # Your code here
     # transform gathered data from txt file to pandas DataFrame and save as csv
-    pass
+    storage = FileStorage(SCRAPPED_FILE)
+    text_data = ''
+    for i in storage.read_data():
+        text_data += i
+
+    parser = HtmlParser(['model', 'date', 'size', 'standard-price', 'promo-price', 'color'])
+    parsed_data = parser.parse(text_data)
+    df = pandas.DataFrame(parsed_data)
+    df.to_csv(TABLE_FORMAT_FILE, sep='\t', encoding='utf-8')
 
 
 def stats_of_data():
     logger.info("stats")
-
     # Your code here
     # Load pandas DataFrame and print to stdout different statistics about the data.
     # Try to think about the data and use not only describe and info.
     # Ask yourself what would you like to know about this data (most frequent word, or something else)
-
+    goods = pandas.read_csv(TABLE_FORMAT_FILE, sep='\t')
+    print('goods count: ' + str(len(goods)))
+    print('rarest size: ' + goods['size'].value_counts().idxmin())
+    goods_for_prices = goods
+    goods_for_prices['standard-price'] = goods_for_prices['standard-price']
+    max_value = goods_for_prices.loc[goods_for_prices['standard-price'].idxmax()]['standard-price']
+    print('max standard-price: ' + str(max_value))
+    print('goods with max standard-price: ' + str(len(goods_for_prices[goods_for_prices['standard-price'].apply(lambda x: x == max_value)])))
+    goods['diff'] = goods['standard-price'] - goods['promo-price']
+    max_value = goods.loc[goods['diff'].idxmax()]['diff']
+    goods_with_max_diff = goods[goods['diff'].apply(lambda x: x == max_value)]
+    print('goods with maximum difference between standard-price and promo-price: ')
+    print(goods_with_max_diff)
+    goods = goods.drop(columns=['diff'], axis=1)
+    goods['DateTime'] = goods['date'].apply(lambda x: pandas.to_datetime(str(x), format='%Y%m%d'))
+    print('trend color in 2018: ' + goods[goods['DateTime'] >= '2018-01-01']['color'].value_counts().idxmax())
+    print('trend color in 2017: ' + goods[(goods['DateTime'] >= '2017-01-01') & (goods['DateTime'] < '2018-01-01')]['color'].value_counts().idxmax())
 
 if __name__ == '__main__':
     """
