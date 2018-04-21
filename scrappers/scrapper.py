@@ -29,5 +29,4 @@ class Scrapper(object):
             # Note: here json can be used as response.json
             # save scrapped objects here
             # you can save url to identify already scrapped objects
-            print(response.cookies)
             storage.write_data([url + '\t' + response.text.replace('\n', '')])
